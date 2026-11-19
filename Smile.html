@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cute Smiley</title>
+<style>
+:root{--bg:#fff4d6;--text:#6b4a00;--face:#ffd93b;--stroke:#e0a800;--ink:#3a2a00;--blush:#ff8fa3;--btn:#6b4a00;--btntext:#fff4d6;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1e1a12;--text:#f3d98a;--btn:#f3d98a;--btntext:#1e1a12}}
+:root[data-theme="dark"]{--bg:#1e1a12;--text:#f3d98a;--btn:#f3d98a;--btntext:#1e1a12}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;user-select:none;-webkit-user-select:none;touch-action:none}
+svg{width:min(70vw,50vh,380px);height:auto;overflow:visible;cursor:pointer}
+#face{transform-origin:100px 100px;transition:transform .15s ease}
+#face.press{transform:scale(.92,1.06)}
+#face.bounce{animation:bounce .5s ease}
+@keyframes bounce{0%{transform:translateY(0)}35%{transform:translateY(-14px) scale(1.04)}70%{transform:translateY(0) scale(.97)}100%{transform:none}}
+#status{margin:1.2rem 1rem .8rem;font-size:1rem;opacity:.85;text-align:center;max-width:32rem;min-height:2.6em}
+button{font:inherit;font-weight:600;border:0;border-radius:999px;padding:.7rem 1.4rem;background:var(--btn);color:var(--btntext);cursor:pointer}
+#prevWrap{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));display:none}
+#prev{width:150px;border-radius:12px;border:3px solid var(--btn);transform:scaleX(-1);display:block;cursor:crosshair}
+#dot{position:fixed;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:#ff4d6d;border:2px solid #fff;pointer-events:none;display:none;z-index:5}
+.heart{position:fixed;pointer-events:none;font-size:24px;animation:float 1.1s ease-out forwards}
+@keyframes float{to{transform:translateY(-120px) scale(1.4);opacity:0}}
+</style>
+</head>
+<body>
+<svg id="svg" viewBox="0 0 200 200" aria-label="A cute smiley face">
+  <g id="face">
+    <circle cx="100" cy="100" r="90" fill="var(--face)" stroke="var(--stroke)" stroke-width="5"/>
+    <ellipse cx="45" cy="118" rx="14" ry="9" fill="var(--blush)" opacity=".6"/>
+    <ellipse cx="155" cy="118" rx="14" ry="9" fill="var(--blush)" opacity=".6"/>
+    <g id="eyesOpen">
+      <circle cx="68" cy="82" r="17" fill="#fff"/>
+      <circle cx="132" cy="82" r="17" fill="#fff"/>
+      <circle id="pL" cx="68" cy="82" r="8" fill="var(--ink)"/>
+      <circle id="pR" cx="132" cy="82" r="8" fill="var(--ink)"/>
+      <circle id="sL" cx="65" cy="78" r="2.5" fill="#fff"/>
+      <circle id="sR" cx="129" cy="78" r="2.5" fill="#fff"/>
+    </g>
+    <g id="eyesHappy" style="display:none" fill="none" stroke="var(--ink)" stroke-width="6" stroke-linecap="round">
+      <path d="M52 90 Q68 68 84 90"/>
+      <path d="M116 90 Q132 68 148 90"/>
+    </g>
+    <path id="mouth" d="M62 125 Q100 160 138 125" fill="none" stroke="var(--ink)" stroke-width="6" stroke-linecap="round"/>
+  </g>
+</svg>
+<div id="status">Move your mouse (or finger) around, or turn on the camera to make it follow your fingertip.</div>
+<button id="camBtn">Enable camera</button>
+<div id="prevWrap"><video id="prev" playsinline muted></video></div>
+<div id="dot"></div>
+<canvas id="work" width="160" height="120" style="display:none"></canvas>
+<script>
+(function(){
+  var svg=document.getElementById('svg'),face=document.getElementById('face');
+  var pL=document.getElementById('pL'),pR=document.getElementById('pR');
+  var sL=document.getElementById('sL'),sR=document.getElementById('sR');
+  var eyesOpen=document.getElementById('eyesOpen'),eyesHappy=document.getElementById('eyesHappy');
+  var mouth=document.getElementById('mouth');
+  var status=document.getElementById('status'),camBtn=document.getElementById('camBtn');
+  var prevWrap=document.getElementById('prevWrap'),prev=document.getElementById('prev');
+  var dot=document.getElementById('dot'),work=document.getElementById('work');
+  var smile='M62 125 Q100 160 138 125',big='M58 120 Q100 185 142 120 Z';
+  var eyes=[{p:pL,s:sL,cx:68,cy:82},{p:pR,s:sR,cx:132,cy:82}];
+  var lastCam=0;
+
+  function look(x,y){
+    var r=svg.getBoundingClientRect(),k=200/r.width;
+    var mx=(x-r.left)*k,my=(y-r.top)*k;
+    eyes.forEach(function(e){
+      var dx=mx-e.cx,dy=my-e.cy,d=Math.hypot(dx,dy)||1,m=Math.min(8,d/6);
+      var ox=dx/d*m,oy=dy/d*m;
+      e.p.setAttribute('cx',e.cx+ox);e.p.setAttribute('cy',e.cy+oy);
+      e.s.setAttribute('cx',e.cx-3+ox);e.s.setAttribute('cy',e.cy-4+oy);
+    });
+  }
+  window.addEventListener('pointermove',function(e){
+    if(Date.now()-lastCam>600)look(e.clientX,e.clientY);
+  });
+
+  function happy(on){
+    eyesOpen.style.display=on?'none':'';
+    eyesHappy.style.display=on?'':'none';
+    mouth.setAttribute('d',on?big:smile);
+    mouth.setAttribute('fill',on?'#c0392b':'none');
+  }
+  function hearts(x,y){
+    for(var i=0;i<5;i++){
+      var h=document.createElement('div');
+      h.className='heart';h.textContent='\u2764\uFE0F';
+      h.style.left=(x+(Math.random()*80-40))+'px';
+      h.style.top=(y+(Math.random()*30-15))+'px';
+      h.style.animationDelay=(i*0.08)+'s';
+      document.body.appendChild(h);
+      setTimeout(function(el){el.remove()},1500,h);
+    }
+  }
+  var timer;
+  function press(x,y){
+    clearTimeout(timer);
+    face.classList.remove('bounce');face.classList.add('press');
+    happy(true);hearts(x,y);
+  }
+  function release(){
+    face.classList.remove('press');
+    void face.getBoundingClientRect();
+    face.classList.add('bounce');
+    timer=setTimeout(function(){happy(false);face.classList.remove('bounce')},700);
+  }
+  svg.addEventListener('pointerdown',function(e){press(e.clientX,e.clientY)});
+  window.addEventListener('pointerup',release);
+
+  /* ---------- Camera fingertip tracking (colour + motion) ---------- */
+  var W=160,H=120,ctx=work.getContext('2d',{willReadFrequently:true});
+  var lastX=window.innerWidth/2,lastY=window.innerHeight/2,tf=0,nf=0,pressed=false;
+  var prevY=new Float32Array(W*H),target=null,tx=0,ty=0,sx=null,sy=null,running=false;
+  var THRESH=20,MOVE=18;
+
+  function cbcr(r,g,b){return [128-0.168736*r-0.331264*g+0.5*b,128+0.5*r-0.418688*g-0.081312*b];}
+
+  prev.addEventListener('pointerup',function(e){e.stopPropagation()});
+  prev.addEventListener('pointerdown',function(e){
+    e.stopPropagation();
+    var r=prev.getBoundingClientRect();
+    var px=Math.round((1-(e.clientX-r.left)/r.width)*W);
+    var py=Math.round((e.clientY-r.top)/r.height*H);
+    var d=ctx.getImageData(Math.max(0,px-2),Math.max(0,py-2),5,5).data,R=0,G=0,B=0,n=d.length/4;
+    for(var i=0;i<d.length;i+=4){R+=d[i];G+=d[i+1];B+=d[i+2];}
+    target=cbcr(R/n,G/n,B/n);
+    status.textContent='Locked on! Move your fingertip to steer. To click, hold up two fingertips that both match the locked colour (e.g. a sticker on each). Tap the preview to re-pick.';
+  });
+  camBtn.addEventListener('pointerup',function(e){e.stopPropagation()});
+  camBtn.addEventListener('pointerdown',function(e){e.stopPropagation()});
+
+  camBtn.addEventListener('click',async function(){
+    try{
+      var stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:320,height:240},audio:false});
+      prev.srcObject=stream;await prev.play();
+      prevWrap.style.display='block';camBtn.style.display='none';
+      status.textContent='Tap your fingertip in the small camera preview to lock on to it. A coloured sticker or pen cap on your fingertip works best.';
+      if(!running){running=true;requestAnimationFrame(loop);}
+    }catch(err){
+      status.textContent='Couldn\u2019t open the camera ('+(err&&err.name?err.name:'error')+'). Check that camera permission is allowed for this page. If it still fails, save this page as an .html file and open it from your computer.';
+    }
+  });
+
+  function loop(){
+    if(prev.readyState>=2){
+      ctx.drawImage(prev,0,0,W,H);
+      var data=ctx.getImageData(0,0,W,H).data,cnt=0,ax=0,ay=0,all=[];
+      for(var i=0,p=0;i<data.length;i+=4,p++){
+        var r=data[i],g=data[i+1],b=data[i+2];
+        var y=0.299*r+0.587*g+0.114*b;
+        var moved=Math.abs(y-prevY[p])>MOVE;
+        prevY[p]=y;
+        if(target){
+          var c=cbcr(r,g,b);
+          if(Math.hypot(c[0]-target[0],c[1]-target[1])<THRESH){
+            var qx=p%W,qy=(p/W)|0;
+            all.push(qx,qy);
+            if(moved){ax+=qx;ay+=qy;cnt++;}
+          }
+        }
+      }
+      if(cnt>6){
+        tx=ax/cnt;ty=ay/cnt;
+        if(sx===null){sx=tx;sy=ty;}
+        sx+=(tx-sx)*0.45;sy+=(ty-sy)*0.45;
+        var X=(1-sx/W)*window.innerWidth,Y=(sy/H)*window.innerHeight;
+        lastCam=Date.now();lastX=X;lastY=Y;
+        dot.style.display='block';dot.style.left=X+'px';dot.style.top=Y+'px';
+        look(X,Y);
+      }
+      var two=false;
+      if(all.length>40){
+        var n2=all.length/2,mx=0,my=0,k;
+        for(k=0;k<all.length;k+=2){mx+=all[k];my+=all[k+1];}
+        mx/=n2;my/=n2;
+        var vx=0,vy=0;
+        for(k=0;k<all.length;k+=2){vx+=Math.abs(all[k]-mx);vy+=Math.abs(all[k+1]-my);}
+        var ux=vx>=vy,A=[0,0,0],Bg=[0,0,0];
+        for(k=0;k<all.length;k+=2){
+          var lo=ux?all[k]<mx:all[k+1]<my,g=lo?A:Bg;
+          g[0]+=all[k];g[1]+=all[k+1];g[2]++;
+        }
+        if(A[2]>=8&&Bg[2]>=8){
+          var ax1=A[0]/A[2],ay1=A[1]/A[2],bx1=Bg[0]/Bg[2],by1=Bg[1]/Bg[2];
+          var dist=Math.hypot(ax1-bx1,ay1-by1),sa=0,sb=0;
+          for(k=0;k<all.length;k+=2){
+            var lo2=ux?all[k]<mx:all[k+1]<my;
+            if(lo2)sa+=Math.hypot(all[k]-ax1,all[k+1]-ay1);else sb+=Math.hypot(all[k]-bx1,all[k+1]-by1);
+          }
+          if(dist>14&&(sa/A[2]+sb/Bg[2])/2<dist*0.3)two=true;
+        }
+      }
+      if(two){tf++;nf=0;}else{nf++;tf=0;}
+      if(tf>=3&&!pressed){pressed=true;press(lastX,lastY);setTimeout(release,200);}
+      if(nf>6)pressed=false;
+    }
+    requestAnimationFrame(loop);
+  }
+})();
+</script>
+</body>
+</html>
